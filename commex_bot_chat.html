@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Commex - Student Exchange</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Space Grotesk', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#fff7ed', 100: '#ffedd5', 200: '#fed7aa', 300: '#fdba74',
+                            400: '#fb923c', 500: '#f97316', 600: '#ea580c', 700: '#c2410c',
+                            800: '#9a3412', 900: '#7c2d12',
+                        }
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'slide-up': 'slideUp 0.5s ease-out',
+                        'fade-in': 'fadeIn 0.3s ease-out',
+                    },
+                    keyframes: {
+                        float: { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-20px)' }, },
+                        slideUp: { '0%': { transform: 'translateY(20px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' }, },
+                        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' }, },
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .glass { background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.3); }
+        .gradient-text { background: linear-gradient(135deg, #ea580c 0%, #f59e0b 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .item-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .item-card:hover { transform: translateY(-8px) scale(1.02); box-shadow: 0 20px 40px -10px rgba(0,0,0,0.2); }
+        .chat-bubble { position: relative; max-width: 80%; padding: 12px 16px; border-radius: 18px; animation: fadeIn 0.3s ease-out; }
+        .chat-bubble.sent { background: linear-gradient(135deg, #ea580c, #c2410c); color: white; border-bottom-right-radius: 4px; margin-left: auto; }
+        .chat-bubble.received { background: #f3f4f6; color: #1f2937; border-bottom-left-radius: 4px; }
+        .chat-bubble.bot { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; border-bottom-left-radius: 4px; border: 1px solid #fcd34d; }
+        .online-dot { width: 8px; height: 8px; background: #22c55e; border-radius: 50%; position: relative; }
+        .online-dot::after { content: ''; position: absolute; inset: -2px; border-radius: 50%; border: 2px solid #22c55e; animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite; }
+        .membership-badge { background: linear-gradient(135deg, #f97316, #ea580c); color: white; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+        .typing-indicator span { display: inline-block; width: 6px; height: 6px; background: #9ca3af; border-radius: 50%; animation: typing 1.4s infinite ease-in-out both; margin: 0 1px; }
+        .typing-indicator span:nth-child(1) { animation-delay: 0s; }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing { 0%, 80%, 100% { transform: scale(0); opacity: 0.5; } 40% { transform: scale(1); opacity: 1; } }
+        @keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900 font-sans overflow-x-hidden">
+
+    <!-- Navigation -->
+    <nav id="navbar" class="fixed w-full z-50 transition-all duration-300 glass border-b border-gray-200/50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center cursor-pointer" onclick="showPage('home')">
+                    <div class="w-10 h-10 bg-gradient-to-br from-brand-500 to-amber-500 rounded-xl flex items-center justify-center text-white font-bold text-xl mr-3 shadow-lg">C</div>
+                    <span class="font-display font-bold text-2xl tracking-tight">Commex</span>
+                </div>
+                <div class="hidden md:flex items-center space-x-8">
+                    <button onclick="showPage('browse')" class="text-gray-600 hover:text-brand-600 font-medium transition-colors">Browse Items</button>
+                    <button onclick="showPage('donate')" class="text-gray-600 hover:text-brand-600 font-medium transition-colors">Start Donating</button>
+                    <button onclick="showPage('chat')" class="text-gray-600 hover:text-brand-600 font-medium transition-colors relative">
+                        My Chats
+                        <span id="chat-badge" class="hidden absolute -top-1 -right-2 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">0</span>
+                    </button>
+                </div>
+                <div id="auth-buttons" class="flex items-center space-x-4">
+                    <div class="hidden md:flex items-center mr-2">
+                        <span class="membership-badge"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>$5/month</span>
+                    </div>
+                    <button onclick="toggleAuthModal()" class="bg-brand-600 hover:bg-brand-700 text-white px-6 py-2 rounded-full font-medium transition-all transform hover:scale-105 shadow-lg shadow-brand-500/30">Sign In</button>
+                </div>
+                <div id="user-menu" class="hidden items-center space-x-4">
+                    <div class="hidden md:flex items-center mr-2">
+                        <span class="membership-badge"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Member</span>
+                    </div>
+                    <div class="flex items-center space-x-2 bg-white/50 px-4 py-2 rounded-full border border-gray-200">
+                        <div class="w-8 h-8 bg-gradient-to-br from-brand-400 to-amber-400 rounded-full flex items-center justify-center text-white font-bold text-sm"><span id="user-avatar">U</span></div>
+                        <span id="username-display" class="font-medium text-gray-700">User</span>
+                    </div>
+                    <button onclick="logout()" class="text-gray-500 hover:text-red-600 transition-colors"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg></button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="fixed inset-0 z-[60] hidden">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="toggleAuthModal()"></div>
+        <div class="relative min-h-screen flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 transform transition-all scale-100 animate-slide-up">
+                <div class="text-center mb-8">
+                    <h2 class="font-display text-3xl font-bold text-gray-900 mb-2">Welcome to Commex</h2>
+                    <p class="text-gray-500">Join our student community</p>
+                </div>
+                <form id="auth-form" onsubmit="handleAuth(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" id="auth-email" required class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all outline-none" placeholder="you@school.edu">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <input type="password" id="auth-password" required class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all outline-none" placeholder="••••••••">
+                    </div>
+                    <div class="bg-brand-50 rounded-xl p-4 border border-brand-200">
+                        <div class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-brand-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <div class="text-sm text-brand-800">
+                                <p class="font-semibold mb-1">$5/month Membership</p>
+                                <p>Unlimited item exchanges, full chat access, and priority support. Cancel anytime.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl transition-all transform hover:scale-[1.02] shadow-lg shadow-brand-500/30">Join for $5/month</button>
+                </form>
+                <div class="mt-6 text-center text-sm text-gray-500"><p>Demo: Use any email/password to sign in</p></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Home Page -->
+    <section id="page-home" class="min-h-screen pt-16">
+        <div class="relative overflow-hidden bg-gradient-to-br from-brand-50 via-white to-amber-50">
+            <div class="absolute inset-0 opacity-30">
+                <div class="absolute top-20 left-10 w-72 h-72 bg-brand-300 rounded-full mix-blend-multiply filter blur-xl animate-float"></div>
+                <div class="absolute top-40 right-10 w-72 h-72 bg-amber-300 rounded-full mix-blend-multiply filter blur-xl animate-float" style="animation-delay: 2s;"></div>
+                <div class="absolute -bottom-8 left-1/2 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl animate-float" style="animation-delay: 4s;"></div>
+            </div>
+            <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-32">
+                <div class="text-center max-w-3xl mx-auto">
+                    <div class="inline-flex items-center px-4 py-2 rounded-full bg-white/80 border border-brand-200 text-brand-700 text-sm font-medium mb-8 shadow-sm">
+                        <span class="flex h-2 w-2 rounded-full bg-brand-500 mr-2 animate-pulse"></span>Student-Powered Exchange
+                    </div>
+                    <h1 class="font-display text-5xl md:text-7xl font-bold text-gray-900 leading-tight mb-6">Share. Learn. <span class="gradient-text">Save.</span></h1>
+                    <p class="text-xl text-gray-600 mb-10 leading-relaxed">Join thousands of students exchanging textbooks, supplies, and gear. <span class="font-semibold text-brand-600">$5/month membership</span> for unlimited access to all items.</p>
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                        <button onclick="showPage('browse')" class="bg-brand-600 hover:bg-brand-700 text-white px-8 py-4 rounded-full font-bold text-lg transition-all transform hover:scale-105 shadow-xl shadow-brand-500/30 flex items-center justify-center gap-2"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>Browse Items</button>
+                        <button onclick="showPage('donate')" class="bg-white hover:bg-gray-50 text-gray-900 border-2 border-gray-200 px-8 py-4 rounded-full font-bold text-lg transition-all transform hover:scale-105 flex items-center justify-center gap-2"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>Start Donating</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="py-24 bg-white">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid md:grid-cols-3 gap-12">
+                    <div class="group p-8 rounded-3xl bg-gray-50 hover:bg-brand-50 transition-all duration-300 border border-transparent hover:border-brand-200">
+                        <div class="w-14 h-14 bg-brand-100 rounded-2xl flex items-center justify-center text-brand-600 mb-6 group-hover:scale-110 transition-transform">
+                            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                        </div>
+                        <h3 class="font-display text-xl font-bold mb-3">Textbooks & Notes</h3>
+                        <p class="text-gray-600">Share course materials, textbooks, and study notes. Save hundreds on expensive books every semester.</p>
+                    </div>
+                    <div class="group p-8 rounded-3xl bg-gray-50 hover:bg-amber-50 transition-all duration-300 border border-transparent hover:border-amber-200">
+                        <div class="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600 mb-6 group-hover:scale-110 transition-transform">
+                            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                        </div>
+                        <h3 class="font-display text-xl font-bold mb-3">Chat & Coordinate</h3>
+                        <p class="text-gray-600">Claim items and chat directly with our bot coordinator to arrange pickup times and locations on campus.</p>
+                    </div>
+                    <div class="group p-8 rounded-3xl bg-gray-50 hover:bg-yellow-50 transition-all duration-300 border border-transparent hover:border-yellow-200">
+                        <div class="w-14 h-14 bg-yellow-100 rounded-2xl flex items-center justify-center text-yellow-600 mb-6 group-hover:scale-110 transition-transform">
+                            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        </div>
+                        <h3 class="font-display text-xl font-bold mb-3">Campus Pickup</h3>
+                        <p class="text-gray-600">Meet safely at the library, student center, or dorm. You handle the exchange, we connect you.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="py-24 bg-gray-900 text-white relative overflow-hidden">
+            <div class="absolute inset-0 opacity-20">
+                <div class="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')]"></div>
+            </div>
+            <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16">
+                    <h2 class="font-display text-4xl font-bold mb-4">Simple & Affordable</h2>
+                    <p class="text-gray-400 text-lg">$5/month membership. Unlimited exchanges. No per-item fees.</p>
+                </div>
+                <div class="grid md:grid-cols-4 gap-8">
+                    <div class="text-center"><div class="w-16 h-16 rounded-full bg-brand-500 flex items-center justify-center text-2xl font-bold mx-auto mb-4">1</div><h4 class="font-bold text-lg mb-2">Join</h4><p class="text-gray-400 text-sm">$5/month membership signup</p></div>
+                    <div class="text-center"><div class="w-16 h-16 rounded-full bg-brand-500 flex items-center justify-center text-2xl font-bold mx-auto mb-4">2</div><h4 class="font-bold text-lg mb-2">Browse</h4><p class="text-gray-400 text-sm">Find textbooks and supplies</p></div>
+                    <div class="text-center"><div class="w-16 h-16 rounded-full bg-brand-500 flex items-center justify-center text-2xl font-bold mx-auto mb-4">3</div><h4 class="font-bold text-lg mb-2">Claim</h4><p class="text-gray-400 text-sm">Chat with bot to coordinate</p></div>
+                    <div class="text-center"><div class="w-16 h-16 rounded-full bg-brand-500 flex items-center justify-center text-2xl font-bold mx-auto mb-4">4</div><h4 class="font-bold text-lg mb-2">Exchange</h4><p class="text-gray-400 text-sm">Meet on campus and trade</p></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Browse Items Page -->
+    <section id="page-browse" class="min-h-screen pt-24 pb-12 hidden bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                <div>
+                    <h1 class="font-display text-4xl font-bold text-gray-900 mb-2">Browse Items</h1>
+                    <p class="text-gray-600">Find textbooks, supplies, and gear for your classes</p>
+                </div>
+                <div class="flex gap-3 w-full md:w-auto">
+                    <div class="relative flex-1 md:w-64">
+                        <input type="text" id="search-input" placeholder="Search items..." oninput="filterItems()" class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none">
+                        <svg class="w-5 h-5 text-gray-400 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </div>
+                    <select id="category-filter" onchange="filterItems()" class="px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-brand-500 outline-none bg-white">
+                        <option value="all">All Categories</option>
+                        <option value="textbooks">Textbooks</option>
+                        <option value="electronics">Electronics</option>
+                        <option value="supplies">School Supplies</option>
+                        <option value="notes">Study Notes</option>
+                        <option value="dorm">Dorm & Living</option>
+                    </select>
+                </div>
+            </div>
+            <div id="items-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+        </div>
+    </section>
+
+    <!-- Item Detail Modal -->
+    <div id="item-modal" class="fixed inset-0 z-[60] hidden">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeItemModal()"></div>
+        <div class="relative min-h-screen flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-slide-up">
+                <div id="item-detail-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Donate Page -->
+    <section id="page-donate" class="min-h-screen pt-24 pb-12 hidden bg-gray-50">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <h1 class="font-display text-4xl font-bold text-gray-900 mb-4">Start Donating</h1>
+                <p class="text-gray-600 text-lg">List your textbooks, supplies, and gear for other students</p>
+            </div>
+            <div class="bg-white rounded-3xl shadow-xl p-8 border border-gray-100">
+                <form id="donate-form" onsubmit="handleDonate(event)" class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Item Title</label>
+                        <input type="text" id="donate-title" required class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none" placeholder="e.g., Calculus 3rd Edition - Stewart">
+                    </div>
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                            <select id="donate-category" required class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-500 outline-none">
+                                <option value="">Select category</option>
+                                <option value="textbooks">Textbooks</option>
+                                <option value="electronics">Electronics</option>
+                                <option value="supplies">School Supplies</option>
+                                <option value="notes">Study Notes</option>
+                                <option value="dorm">Dorm & Living</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Condition</label>
+                            <select id="donate-condition" required class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-500 outline-none">
+                                <option value="">Select condition</option>
+                                <option value="new">Like New</option>
+                                <option value="good">Good</option>
+                                <option value="fair">Fair - Some Wear</option>
+                                <option value="poor">Heavy Use - Still Usable</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Course/Subject (Optional)</label>
+                        <input type="text" id="donate-course" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none" placeholder="e.g., MATH 101, Biology, Chemistry">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                        <textarea id="donate-desc" required rows="4" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none resize-none" placeholder="Describe your item, edition, ISBN, pickup location on campus, etc."></textarea>
+                    </div>
+                    <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-brand-400 transition-colors cursor-pointer bg-gray-50" onclick="alert('Photo upload simulated - in real app this would open file picker')">
+                        <svg class="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        <p class="text-gray-600 font-medium">Click to upload photos</p>
+                        <p class="text-gray-400 text-sm mt-1">or drag and drop</p>
+                    </div>
+                    <div class="bg-brand-50 rounded-xl p-4 border border-brand-200">
+                        <div class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-brand-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <div class="text-sm text-brand-800">
+                                <p class="font-semibold mb-1">Free for Members:</p>
+                                <p>Your $5/month membership covers all exchanges. Students will message you to arrange pickup on campus.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-4 rounded-xl transition-all transform hover:scale-[1.02] shadow-lg shadow-brand-500/30">List Item for Students</button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Chat Page - Bot Chats Only -->
+    <section id="page-chat" class="min-h-screen pt-16 pb-0 hidden bg-gray-100">
+        <div class="h-[calc(100vh-4rem)] flex">
+            <!-- Sidebar - Bot Chats List -->
+            <div class="w-full md:w-80 bg-white border-r border-gray-200 flex flex-col">
+                <div class="p-4 border-b border-gray-200">
+                    <h2 class="font-display text-xl font-bold text-gray-900">My Chats</h2>
+                    <p class="text-sm text-gray-500 mt-1">Your item coordination chats</p>
+                </div>
+                <div id="bot-chats-list" class="flex-1 overflow-y-auto">
+                    <div id="no-chats-message" class="p-8 text-center">
+                        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                        </div>
+                        <p class="text-gray-500 text-sm">No active chats yet</p>
+                        <p class="text-gray-400 text-xs mt-1">Claim an item to start chatting</p>
+                        <button onclick="showPage('browse')" class="mt-4 text-brand-600 text-sm font-medium hover:text-brand-700">Browse Items →</button>
+                    </div>
+                </div>
+                <div class="p-4 border-t border-gray-200 bg-gray-50">
+                    <div class="flex items-center gap-2">
+                        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-xs text-gray-500">Bot Coordinator Online</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Chat Area -->
+            <div class="flex-1 flex flex-col bg-gray-50 hidden md:flex" id="chat-area-container">
+                <div id="chat-header" class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-amber-400 flex items-center justify-center text-white font-bold text-lg" id="chat-avatar">🤖</div>
+                        <div>
+                            <h3 class="font-bold text-gray-900" id="chat-title">Select a Chat</h3>
+                            <p class="text-sm text-green-600 flex items-center gap-1" id="chat-status"><span class="online-dot"></span><span>Bot Coordinator</span></p>
+                        </div>
+                    </div>
+                    <button onclick="showPage('browse')" class="text-sm text-brand-600 font-medium hover:text-brand-700">Browse Items →</button>
+                </div>
+                <div id="messages-container" class="flex-1 overflow-y-auto p-6 space-y-4"></div>
+                <div class="bg-white border-t border-gray-200 p-4">
+                    <div id="typing-indicator" class="hidden mb-2">
+                        <span class="text-xs text-gray-500 flex items-center gap-2"><span id="typing-user">Bot</span> is typing<span class="typing-indicator inline-flex"><span></span><span></span><span></span></span></span>
+                    </div>
+                    <form id="message-form" onsubmit="sendMessage(event)" class="flex gap-3">
+                        <input type="text" id="message-input" placeholder="Type a message..." class="flex-1 px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none" autocomplete="off">
+                        <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white px-6 py-3 rounded-xl font-medium transition-colors flex items-center gap-2"><span>Send</span><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg></button>
+                    </form>
+                </div>
+            </div>
+            <div class="flex-1 flex items-center justify-center bg-gray-50 md:hidden" id="mobile-chat-placeholder">
+                <div class="text-center p-8">
+                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                    </div>
+                    <p class="text-gray-500">Select a chat to view messages</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+
+        // ==================== DATA & STATE ====================
+        let currentUser = null;
+        let currentChat = null;
+        let botChats = {};
+
+        // Load from localStorage if available
+        function loadBotChats() {
+            const saved = localStorage.getItem('commex_bot_chats');
+            if (saved) {
+                try {
+                    botChats = JSON.parse(saved);
+                } catch(e) {
+                    botChats = {};
+                }
+            }
+        }
+
+        function saveBotChats() {
+            localStorage.setItem('commex_bot_chats', JSON.stringify(botChats));
+        }
+
+        loadBotChats();
+
+        let items = [
+            { id: 1, title: "Calculus: Early Transcendentals 8th Ed", category: "textbooks", condition: "good", location: "Library, 2nd Floor", donor: "Sarah M.", image: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&h=300&fit=crop", description: "Stewart Calculus textbook. Some highlighting in chapters 1-3, rest is clean. Perfect for MATH 101/102.", posted: "2 hours ago", course: "MATH 101" },
+            { id: 2, title: "MacBook Air M1 (2020)", category: "electronics", condition: "good", location: "Student Center", donor: "Mike T.", image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400&h=300&fit=crop", description: "Upgraded to M2. 8GB RAM, 256GB SSD. Battery health 92%. Includes charger and case. Great for coding classes.", posted: "5 hours ago", course: "CS Major" },
+            { id: 3, title: "Chemistry Lab Goggles & Coat", category: "supplies", condition: "good", location: "Science Building", donor: "Jake R.", image: "https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=400&h=300&fit=crop", description: "Standard safety goggles and white lab coat (size M). Used for CHEM 201. Both sanitized and ready to go.", posted: "1 day ago", course: "CHEM 201" },
+            { id: 4, title: "Biology 11th Edition - Campbell", category: "textbooks", condition: "new", location: "Dorm Hall B", donor: "Emma L.", image: "https://images.unsplash.com/photo-1589998059171-988d887df646?w=400&h=300&fit=crop", description: "Never used! Bought for BIO 150 but dropped the class. Still in original packaging with access code unused.", posted: "3 hours ago", course: "BIO 150" },
+            { id: 5, title: "Complete AP Physics Notes (1&2)", category: "notes", condition: "good", location: "Library Cafe", donor: "David K.", image: "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=400&h=300&fit=crop", description: "Handwritten notes covering all AP Physics 1 & 2 topics. Includes practice problems and formula sheets. Scored 5 on both exams.", posted: "6 hours ago", course: "PHYS 101/102" },
+            { id: 6, title: "Desk Lamp + Organizer Set", category: "dorm", condition: "good", location: "Dorm Hall C", donor: "Lisa P.", image: "https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?w=400&h=300&fit=crop", description: "LED desk lamp with USB charging port and bamboo desk organizer. Moving out of dorm, everything must go!", posted: "12 hours ago", course: "" },
+            { id: 7, title: "iPad Air 4 + Apple Pencil", category: "electronics", condition: "good", location: "Student Center", donor: "Alex S.", image: "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=400&h=300&fit=crop", description: "64GB, Sky Blue. Perfect for digital note-taking. Apple Pencil 2nd gen included. Some minor scratches on back.", posted: "4 hours ago", course: "Design Major" },
+            { id: 8, title: "Graphing Calculator TI-84 Plus", category: "supplies", condition: "fair", location: "Math Building", donor: "Roberta H.", image: "https://images.unsplash.com/photo-1587145820266-a5951eebebb6?w=400&h=300&fit=crop", description: "Works perfectly, just has some scratches on the screen. All functions tested. Essential for calculus and stats.", posted: "2 days ago", course: "MATH/STAT" },
+            { id: 9, title: "Psychology 5th Ed - Myers", category: "textbooks", condition: "good", location: "Library, 3rd Floor", donor: "Jordan", image: "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=400&h=300&fit=crop", description: "Great condition, minimal highlighting. Perfect for PSYC 101. Includes online study guide access.", posted: "1 day ago", course: "PSYC 101" },
+            { id: 10, title: "Mini Fridge (3.2 cu ft)", category: "dorm", condition: "good", location: "Dorm Hall A", donor: "Casey", image: "https://images.unsplash.com/photo-1584568694244-14fbdf83bd30?w=400&h=300&fit=crop", description: "Perfect dorm fridge. Freezer compartment works great. Clean and odor-free. Moving to apartment with full kitchen.", posted: "8 hours ago", course: "" },
+            { id: 11, title: "Organic Chemistry Model Kit", category: "supplies", condition: "new", location: "Science Building", donor: "Morgan", image: "https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=400&h=300&fit=crop", description: "Never opened! 239 pieces for building molecular structures. Essential for OCHEM 301. Paid $40, yours free with membership.", posted: "3 hours ago", course: "OCHEM 301" },
+            { id: 12, title: "Economics Notes - Micro & Macro", category: "notes", condition: "good", location: "Business Building", donor: "Taylor", image: "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=400&h=300&fit=crop", description: "Comprehensive typed notes for ECON 201 & 202. Includes graphs, formulas, and exam prep. Helped me get an A in both!", posted: "5 hours ago", course: "ECON 201/202" }
+        ];
+
+        // ==================== PAGE NAVIGATION ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            renderItems();
+            renderBotChatList();
+            updateChatBadge();
+        });
+
+        function showPage(pageName) {
+            document.querySelectorAll('[id^="page-"]').forEach(page => page.classList.add('hidden'));
+            document.getElementById(`page-${pageName}`).classList.remove('hidden');
+            window.scrollTo(0, 0);
+            if (pageName === 'chat') {
+                renderBotChatList();
+                if (currentChat && botChats[currentChat]) {
+                    setTimeout(() => {
+                        renderMessages();
+                        scrollToBottom();
+                    }, 100);
+                }
+            }
+        }
+
+        function toggleAuthModal() { 
+            document.getElementById('auth-modal').classList.toggle('hidden'); 
+        }
+
+        function handleAuth(e) {
+            e.preventDefault();
+            const email = document.getElementById('auth-email').value;
+            currentUser = { 
+                email: email, 
+                name: email.split('@')[0], 
+                avatar: email[0].toUpperCase() 
+            };
+            document.getElementById('auth-buttons').classList.add('hidden');
+            document.getElementById('user-menu').classList.remove('hidden');
+            document.getElementById('user-menu').classList.add('flex');
+            document.getElementById('username-display').textContent = currentUser.name;
+            document.getElementById('user-avatar').textContent = currentUser.avatar;
+            toggleAuthModal();
+        }
+
+        function logout() {
+            currentUser = null;
+            document.getElementById('auth-buttons').classList.remove('hidden');
+            document.getElementById('user-menu').classList.add('hidden');
+            document.getElementById('user-menu').classList.remove('flex');
+            showPage('home');
+        }
+
+        // ==================== ITEMS BROWSING ====================
+        function renderItems() {
+            const grid = document.getElementById('items-grid');
+            const searchTerm = document.getElementById('search-input')?.value.toLowerCase() || '';
+            const category = document.getElementById('category-filter')?.value || 'all';
+            const filtered = items.filter(item => {
+                const matchesSearch = item.title.toLowerCase().includes(searchTerm) || 
+                                    item.description.toLowerCase().includes(searchTerm) || 
+                                    (item.course && item.course.toLowerCase().includes(searchTerm));
+                const matchesCategory = category === 'all' || item.category === category;
+                return matchesSearch && matchesCategory;
+            });
+            grid.innerHTML = filtered.map(item => `
+                <div class="item-card bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm cursor-pointer" onclick="openItemModal(${item.id})">
+                    <div class="relative h-48 overflow-hidden">
+                        <img src="${item.image}" alt="${item.title}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-110">
+                        <div class="absolute top-3 right-3 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-semibold text-gray-700 shadow-sm">${item.condition}</div>
+                        ${item.course ? `<div class="absolute top-3 left-3 bg-brand-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-sm">${item.course}</div>` : ''}
+                    </div>
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-2"><h3 class="font-bold text-lg text-gray-900 line-clamp-1">${item.title}</h3></div>
+                        <p class="text-gray-500 text-sm mb-4 line-clamp-2">${item.description}</p>
+                        <div class="flex items-center justify-between text-sm">
+                            <div class="flex items-center text-gray-600"><svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>${item.location}</div>
+                            <span class="text-brand-600 font-semibold">Free</span>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-6 h-6 rounded-full bg-gradient-to-br from-brand-400 to-amber-400 flex items-center justify-center text-white text-xs font-bold">${item.donor[0]}</div>
+                                <span class="text-sm text-gray-600">${item.donor}</span>
+                            </div>
+                            <span class="text-xs text-gray-400">${item.posted}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function filterItems() { renderItems(); }
+
+        // ==================== ITEM DETAIL & CLAIM ====================
+        let currentItemForClaim = null;
+
+        function openItemModal(itemId) {
+            const item = items.find(i => i.id === itemId);
+            if (!item) return;
+            currentItemForClaim = item;
+            const content = document.getElementById('item-detail-content');
+            content.innerHTML = `
+                <div class="relative">
+                    <button onclick="closeItemModal()" class="absolute top-4 right-4 z-10 w-10 h-10 bg-white/80 backdrop-blur rounded-full flex items-center justify-center hover:bg-white transition-colors shadow-lg"><svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                    <div class="h-64 md:h-96 overflow-hidden"><img src="${item.image}" alt="${item.title}" class="w-full h-full object-cover"></div>
+                    <div class="p-8">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <div class="flex gap-2 mb-2">
+                                    <span class="inline-block px-3 py-1 bg-brand-100 text-brand-700 rounded-full text-sm font-medium">${item.category}</span>
+                                    ${item.course ? `<span class="inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">${item.course}</span>` : ''}
+                                </div>
+                                <h2 class="font-display text-3xl font-bold text-gray-900">${item.title}</h2>
+                            </div>
+                            <div class="text-right"><div class="text-2xl font-bold text-brand-600">Free</div><div class="text-sm text-gray-500">with $5/mo membership</div></div>
+                        </div>
+                        <div class="grid md:grid-cols-3 gap-6 mb-6 text-sm">
+                            <div class="flex items-center gap-2 text-gray-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>${item.location}</div>
+                            <div class="flex items-center gap-2 text-gray-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>Condition: ${item.condition}</div>
+                            <div class="flex items-center gap-2 text-gray-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>Posted ${item.posted}</div>
+                        </div>
+                        <div class="prose max-w-none mb-8"><h3 class="font-bold text-gray-900 mb-2">Description</h3><p class="text-gray-600 leading-relaxed">${item.description}</p></div>
+                        <div class="bg-gray-50 rounded-xl p-4 mb-8 flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-brand-400 to-amber-400 flex items-center justify-center text-white font-bold text-lg">${item.donor[0]}</div>
+                            <div><div class="font-semibold text-gray-900">Donated by ${item.donor}</div><div class="text-sm text-gray-500">Student since 2024</div></div>
+                        </div>
+                        <div class="flex gap-4">
+                            <button onclick="claimItem(${item.id})" class="flex-1 bg-brand-600 hover:bg-brand-700 text-white font-bold py-4 rounded-xl transition-all transform hover:scale-[1.02] shadow-lg shadow-brand-500/30 flex items-center justify-center gap-2"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Claim Item</button>
+                        </div>
+                        <p class="text-center text-sm text-gray-500 mt-4">Claiming creates a chat with our Bot Coordinator to arrange pickup</p>
+                    </div>
+                </div>
+            `;
+            document.getElementById('item-modal').classList.remove('hidden');
+        }
+
+        function closeItemModal() { 
+            document.getElementById('item-modal').classList.add('hidden'); 
+            currentItemForClaim = null;
+        }
+
+        // ==================== BOT CHAT CREATION ====================
+        function claimItem(itemId) {
+            if (!currentUser) { 
+                alert('Please sign in first to claim items!'); 
+                toggleAuthModal(); 
+                return; 
+            }
+
+            const item = items.find(i => i.id === itemId);
+            if (!item) return;
+
+            // Create unique chat ID for this item claim
+            const chatId = 'bot_' + itemId + '_' + Date.now();
+
+            // Create bot chat data
+            botChats[chatId] = {
+                id: chatId,
+                itemId: itemId,
+                itemTitle: item.title,
+                itemDonor: item.donor,
+                itemLocation: item.location,
+                itemCondition: item.condition,
+                itemCourse: item.course,
+                createdAt: new Date().toISOString(),
+                messages: [
+                    {
+                        id: Date.now(),
+                        user: "Bot Coordinator",
+                        text: `Hi ${currentUser.name}! You've claimed "${item.title}" from ${item.donor}. I'm here to help you coordinate pickup!\n\n📍 Location: ${item.location}\n📦 Condition: ${item.condition}\n👤 Donor: ${item.donor}\n\nWhat would you like to know? You can ask about:\n• Pickup times and location\n• Item details\n• Contacting the donor\n• Canceling your claim`,
+                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        type: 'bot'
+                    }
+                ],
+                unread: 0,
+                lastMessage: `You've claimed "${item.title}"`,
+                lastTime: 'Just now'
+            };
+
+            saveBotChats();
+            closeItemModal();
+
+            // Switch to chat page and open this chat
+            currentChat = chatId;
+            showPage('chat');
+            renderBotChatList();
+            switchBotChat(chatId);
+            updateChatBadge();
+
+            // Show success notification
+            setTimeout(() => {
+                alert(`Item claimed! A chat has been created with our Bot Coordinator for "${item.title}". Check your chats to coordinate pickup!`);
+            }, 300);
+        }
+
+        // ==================== BOT CHAT LIST ====================
+        function renderBotChatList() {
+            const container = document.getElementById('bot-chats-list');
+            const chatIds = Object.keys(botChats);
+
+            if (chatIds.length === 0) {
+                container.innerHTML = `
+                    <div id="no-chats-message" class="p-8 text-center">
+                        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                        </div>
+                        <p class="text-gray-500 text-sm">No active chats yet</p>
+                        <p class="text-gray-400 text-xs mt-1">Claim an item to start chatting</p>
+                        <button onclick="showPage('browse')" class="mt-4 text-brand-600 text-sm font-medium hover:text-brand-700">Browse Items →</button>
+                    </div>
+                `;
+                return;
+            }
+
+            // Sort by most recent
+            const sortedChats = chatIds.map(id => botChats[id]).sort((a, b) => {
+                return new Date(b.createdAt) - new Date(a.createdAt);
+            });
+
+            container.innerHTML = sortedChats.map(chat => `
+                <div onclick="switchBotChat('${chat.id}')" id="chat-list-${chat.id}" class="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${chat.id === currentChat ? 'bg-brand-50 border-l-4 border-l-brand-500' : ''}">
+                    <div class="flex items-center gap-3">
+                        <div class="relative">
+                            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-brand-400 to-amber-400 flex items-center justify-center text-white font-bold text-lg">🤖</div>
+                            <span class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex justify-between items-center mb-1">
+                                <h3 class="font-semibold text-gray-900 truncate">${chat.itemTitle}</h3>
+                                <span class="text-xs text-gray-400">${chat.lastTime}</span>
+                            </div>
+                            <p class="text-sm text-gray-500 truncate">${chat.lastMessage}</p>
+                            <p class="text-xs text-gray-400 mt-0.5">with ${chat.itemDonor}</p>
+                        </div>
+                        ${chat.unread > 0 ? `<span class="w-5 h-5 bg-brand-500 text-white text-xs rounded-full flex items-center justify-center flex-shrink-0">${chat.unread}</span>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function switchBotChat(chatId) {
+            if (!botChats[chatId]) return;
+
+            currentChat = chatId;
+            const chat = botChats[chatId];
+            chat.unread = 0;
+            saveBotChats();
+
+            // Update sidebar selection
+            document.querySelectorAll('[id^="chat-list-"]').forEach(el => {
+                el.classList.remove('bg-brand-50', 'border-l-4', 'border-l-brand-500');
+            });
+            const listEl = document.getElementById(`chat-list-${chatId}`);
+            if (listEl) listEl.classList.add('bg-brand-50', 'border-l-4', 'border-l-brand-500');
+
+            // Update chat header
+            document.getElementById('chat-title').textContent = chat.itemTitle;
+            document.getElementById('chat-avatar').textContent = '🤖';
+            document.getElementById('chat-status').innerHTML = '<span class="online-dot"></span><span>Bot Coordinator • Online</span>';
+
+            // Show chat area on mobile
+            document.getElementById('chat-area-container').classList.remove('hidden');
+            document.getElementById('chat-area-container').classList.add('flex');
+            document.getElementById('mobile-chat-placeholder').classList.add('hidden');
+
+            renderMessages();
+            updateChatBadge();
+            setTimeout(() => scrollToBottom(), 100);
+        }
+
+        function updateChatBadge() {
+            const badge = document.getElementById('chat-badge');
+            const totalUnread = Object.values(botChats).reduce((sum, chat) => sum + (chat.unread || 0), 0);
+            if (totalUnread > 0) {
+                badge.textContent = totalUnread;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        // ==================== MESSAGE HANDLING ====================
+        function renderMessages() {
+            const container = document.getElementById('messages-container');
+            if (!currentChat || !botChats[currentChat]) {
+                container.innerHTML = '<div class="flex items-center justify-center h-full text-gray-400">Select a chat to view messages</div>';
+                return;
+            }
+
+            const chatMessages = botChats[currentChat].messages;
+            container.innerHTML = chatMessages.map(msg => {
+                if (msg.type === 'system') { 
+                    return `<div class="flex justify-center my-4"><span class="bg-gray-200 text-gray-600 text-xs px-4 py-2 rounded-full">${msg.text}</span></div>`; 
+                }
+                const isSent = msg.type === 'sent';
+                const isBot = msg.type === 'bot';
+                const bubbleClass = isSent ? 'sent' : (isBot ? 'bot' : 'received');
+                const timeClass = isSent ? 'text-orange-100' : (isBot ? 'text-amber-700' : 'text-gray-400');
+                const senderName = isBot ? '🤖 Bot Coordinator' : (isSent ? 'You' : msg.user);
+
+                return `
+                    <div class="chat-bubble ${bubbleClass} mb-4">
+                        ${!isSent ? `<div class="text-xs opacity-75 mb-1 font-semibold">${senderName}</div>` : ''}
+                        <div class="whitespace-pre-line">${msg.text}</div>
+                        <div class="text-xs ${timeClass} mt-1 text-right">${msg.time}</div>
+                    </div>
+                `;
+            }).join('');
+            scrollToBottom();
+        }
+
+        function sendMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('message-input');
+            const text = input.value.trim();
+            if (!text) return;
+            if (!currentUser) { 
+                alert('Please sign in to chat!'); 
+                toggleAuthModal(); 
+                return; 
+            }
+            if (!currentChat || !botChats[currentChat]) {
+                alert('Please claim an item first to start a chat!');
+                showPage('browse');
+                return;
+            }
+
+            const chat = botChats[currentChat];
+            const newMsg = { 
+                id: Date.now(), 
+                user: currentUser.name, 
+                text: text, 
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), 
+                type: 'sent' 
+            };
+
+            chat.messages.push(newMsg);
+            chat.lastMessage = text.substring(0, 40) + (text.length > 40 ? '...' : '');
+            chat.lastTime = 'Just now';
+            input.value = '';
+
+            saveBotChats();
+            renderMessages();
+            renderBotChatList();
+
+            // Show typing indicator
+            document.getElementById('typing-indicator').classList.remove('hidden');
+
+            // Bot response
+            setTimeout(() => {
+                document.getElementById('typing-indicator').classList.add('hidden');
+                const botReply = generateBotResponse(text, chat);
+                const botMsg = {
+                    id: Date.now() + 1,
+                    user: "Bot Coordinator",
+                    text: botReply,
+                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    type: 'bot'
+                };
+                chat.messages.push(botMsg);
+                chat.lastMessage = botReply.substring(0, 40) + (botReply.length > 40 ? '...' : '');
+                chat.lastTime = 'Just now';
+
+                saveBotChats();
+                renderMessages();
+                renderBotChatList();
+                scrollToBottom();
+            }, 1500 + Math.random() * 1000);
+        }
+
+        function generateBotResponse(userText, chat) {
+            const lowerText = userText.toLowerCase();
+            const item = items.find(i => i.id === chat.itemId);
+
+            // Pickup related
+            if (lowerText.includes('pickup') || lowerText.includes('time') || lowerText.includes('when') || lowerText.includes('meet')) {
+                const times = ["9:00 AM", "11:00 AM", "1:00 PM", "3:00 PM", "5:00 PM"];
+                const randomTime = times[Math.floor(Math.random() * times.length)];
+                return `Great question! Here are some suggested pickup times at ${chat.itemLocation}:\n\n📅 Available Times:\n• Tomorrow at ${randomTime}\n• This Saturday at 10:00 AM\n• Next Monday at 2:00 PM\n\nWould any of these work for you? I can also help you contact ${chat.itemDonor} to arrange a custom time.`;
+            }
+
+            // Location related
+            if (lowerText.includes('location') || lowerText.includes('where') || lowerText.includes('address') || lowerText.includes('place')) {
+                return `The item is currently located at:\n\n📍 ${chat.itemLocation}\n\nThis is where ${chat.itemDonor} usually is on campus. Would you like me to suggest some alternative meeting spots, or do you need directions to this location?`;
+            }
+
+            // Item details
+            if (lowerText.includes('detail') || lowerText.includes('condition') || lowerText.includes('quality') || lowerText.includes('more info') || lowerText.includes('about the item')) {
+                return `Here are the details for "${chat.itemTitle}":\n\n📦 Condition: ${chat.itemCondition}\n📍 Location: ${chat.itemLocation}\n👤 Donor: ${chat.itemDonor}\n${chat.itemCourse ? `📚 Course: ${chat.itemCourse}\n` : ''}\nIs there anything specific you'd like to know about this item?`;
+            }
+
+            // Contact donor
+            if (lowerText.includes('contact') || lowerText.includes('donor') || lowerText.includes('reach') || lowerText.includes('message') || lowerText.includes('email') || lowerText.includes('phone')) {
+                return `I can help you connect with ${chat.itemDonor}! Here's what I can do:\n\n📧 I've notified ${chat.itemDonor} that you're interested in picking up "${chat.itemTitle}".\n\nThey should respond soon through this chat. In the meantime, is there anything else I can help you with regarding the pickup?`;
+            }
+
+            // Cancel claim
+            if (lowerText.includes('cancel') || lowerText.includes('delete') || lowerText.includes('remove') || lowerText.includes('nevermind') || lowerText.includes('dont want')) {
+                return `I understand you'd like to cancel your claim for "${chat.itemTitle}".\n\n⚠️ Are you sure you want to cancel? If so, the item will be made available to other students again.\n\nType "YES" to confirm cancellation, or let me know if there's something else I can help with!`;
+            }
+
+            // Price/cost
+            if (lowerText.includes('price') || lowerText.includes('cost') || lowerText.includes('money') || lowerText.includes('pay') || lowerText.includes('$')) {
+                return `Good news! This item is completely FREE with your $5/month Commex membership.\n\n💰 No additional charges - your membership covers all exchanges!\n\nYou just need to arrange pickup with ${chat.itemDonor}.`;
+            }
+
+            // Thank you
+            if (lowerText.includes('thank') || lowerText.includes('thanks') || lowerText.includes('appreciate')) {
+                const replies = [
+                    "You're very welcome! Happy to help! 😊",
+                    "No problem at all! Let me know if you need anything else.",
+                    "Glad I could help! Enjoy your new item! 📚",
+                    "Anytime! That's what I'm here for! 🤖"
+                ];
+                return replies[Math.floor(Math.random() * replies.length)];
+            }
+
+            // Help
+            if (lowerText.includes('help') || lowerText.includes('what can you do') || lowerText.includes('support')) {
+                return `I'm your Bot Coordinator! Here's how I can help:\n\n🤖 What I can do:\n• Suggest pickup times and locations\n• Provide item details and condition info\n• Help you contact the donor\n• Answer questions about the exchange process\n• Cancel your claim if needed\n\nJust ask me anything about your claimed item!`;
+            }
+
+            // Hello / greeting
+            if (lowerText.includes('hello') || lowerText.includes('hi') || lowerText.includes('hey') || lowerText.includes('sup')) {
+                return `Hey there! 👋 I'm your Bot Coordinator for "${chat.itemTitle}".\n\nReady to help you coordinate pickup with ${chat.itemDonor}. What would you like to know?`;
+            }
+
+            // Default response
+            const defaultReplies = [
+                `I see! Let me help with that. For "${chat.itemTitle}", the item is at ${chat.itemLocation} and in ${chat.itemCondition} condition. What else can I help you with?`,
+                `Got it! I'm here to help coordinate your pickup for "${chat.itemTitle}". Would you like to know about pickup times, the item condition, or how to contact ${chat.itemDonor}?`,
+                `Thanks for reaching out! I'm your coordinator for this item. Is there something specific about the pickup or item you'd like to know?`,
+                `I'm on it! Let me know if you need help with pickup scheduling, item details, or contacting ${chat.itemDonor}.`
+            ];
+            return defaultReplies[Math.floor(Math.random() * defaultReplies.length)];
+        }
+
+        function handleDonate(e) {
+            e.preventDefault();
+            if (!currentUser) { alert('Please sign in first to list items!'); toggleAuthModal(); return; }
+            const newItem = {
+                id: items.length + 1, title: document.getElementById('donate-title').value,
+                category: document.getElementById('donate-category').value,
+                condition: document.getElementById('donate-condition').value,
+                location: "Campus", donor: currentUser.name,
+                image: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&h=300&fit=crop",
+                description: document.getElementById('donate-desc').value,
+                posted: "Just now", course: document.getElementById('donate-course').value || ""
+            };
+            items.unshift(newItem); renderItems();
+            alert('Item listed successfully! Students can now claim it.'); 
+            showPage('browse'); 
+            e.target.reset();
+        }
+
+        function scrollToBottom() { 
+            const container = document.getElementById('messages-container'); 
+            if (container) container.scrollTop = container.scrollHeight; 
+        }
+
+        document.addEventListener('keydown', (e) => { 
+            if (e.key === 'Escape') { 
+                closeItemModal(); 
+                document.getElementById('auth-modal').classList.add('hidden'); 
+            } 
+        });
+    </script>
+</body>
+</html>
